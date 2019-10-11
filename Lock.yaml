@@ -1,0 +1,123 @@
+######sensor######
+- platform: template
+  sensors:
+      lock_battery:
+       unit_of_measurement: "%"
+       value_template: '{{ states.zwave.assa_abloy_yale_conexis_l1_sd_l1000_ch.attributes.battery_level }}'
+       friendly_name: 'Door Battery'
+
+- platform: template
+  sensors:
+      lock_state:
+        friendly_name: "Status"
+        value_template: >-
+          {% if is_state('lock.front_door', 'locked') %}
+            Locked
+          {% else %}
+            Unlocked
+          {% endif %}
+        icon_template: "{% if is_state('lock.front_door', 'locked') %}mdi:home-lock{% else %}mdi:home-lock-open{% endif %}"
+
+- platform: template
+  sensors:
+      lock_usage:
+        friendly_name: "Usage"
+        value_template: >
+          {% set lock_status = state_attr('lock.front_door','lock_status') %}
+          {% if lock_status == 'Manually Locked by Key Cylinder or Inside thumb turn' %}
+          Manually Locked
+          {% elif lock_status == 'Manually Unlocked' %}
+          Manually Unlocked
+          {% elif lock_status == 'Unlocked by NFC Tag or Card by user 3' %}
+          David
+          {% elif lock_status == 'Unlocked by NFC Tag or Card by user 2' %}
+          Vicky
+          {% elif lock_status == 'Unlocked by NFC Tag or Card by user 1' %}
+          Cleaner
+          {% elif lock_status == 'Auto re-lock' %}
+          Auto locked
+          {% elif lock_status == 'Unlocked by Bluetooth' %}
+          Bluetooth
+          {% elif lock_status == 'Locked by RF' %}
+          Remote locked
+          {% elif lock_status == 'Unlocked by RF' %}
+          Remote Unlocked
+          {% else %}
+          Manually Locked
+          {% endif %}
+
+
+- platform: template
+  sensors:
+      unlocked_by:
+        friendly_name: "Unlocked By"
+  #      entity_id: sensor.time_date
+        value_template: >
+            {%-if states.input_datetime.front_door_david.state > states.input_datetime.front_door_vicky.state -%}
+            David
+            {%-elif states.input_datetime.front_door_vicky.state > states.input_datetime.front_door_david.state -%}
+            Vicky
+            {%-elif states.input_datetime.front_door_david.state > states.input_datetime.front_door_spare_card.state -%}
+            David
+            {%-elif states.input_datetime.front_door_vicky.state > states.input_datetime.front_door_spare_card.state -%}
+            Vicky
+            {%-elif states.input_datetime.front_door_spare_card.state > states.input_datetime.front_door_david.state -%}
+            Spare
+            {%-elif states.input_datetime.front_door_spare_card.state > states.input_datetime.front_door_vicky.state -%}
+            Spare
+            {%- else -%}
+            Not registered
+            {%- endif %}
+
+
+#####Automations#####
+
+- alias: david_unlock_front_door_time
+  trigger:
+    - platform: template
+      value_template: "{{ is_state_attr('lock.front_door', 'lock_status', 'Unlocked by NFC Tag or Card by user 3') }}"
+  action:
+    - service: input_datetime.set_datetime
+      data_template:
+        entity_id: input_datetime.front_door_david
+        time: '{{ (as_timestamp(now()) | timestamp_custom("%H:%M:%S", true)) }}'
+        date: '{{ (as_timestamp(now()) | timestamp_custom("%Y-%m-%d", true)) }}'
+
+
+- alias: vicky_unlock_front_door_time
+  trigger:
+    - platform: template
+      value_template: "{{ is_state_attr('lock.front_door', 'lock_status', 'Unlocked by NFC Tag or Card by user 2') }}"
+  action:
+    - service: input_datetime.set_datetime
+      data_template:
+        entity_id: input_datetime.front_door_vicky
+        time: '{{ (as_timestamp(now()) | timestamp_custom("%H:%M:%S", true)) }}'
+        date: '{{ (as_timestamp(now()) | timestamp_custom("%Y-%m-%d", true)) }}'
+
+- alias: spare_card_unlock_front_door_time
+  trigger:
+    - platform: template
+      value_template: "{{ is_state_attr('lock.front_door', 'lock_status', 'Unlocked by NFC Tag or Card by user 1') }}"
+  action:
+    - service: input_datetime.set_datetime
+      data_template:
+        entity_id: input_datetime.front_door_spare_card
+        time: '{{ (as_timestamp(now()) | timestamp_custom("%H:%M:%S", true)) }}'
+        date: '{{ (as_timestamp(now()) | timestamp_custom("%Y-%m-%d", true)) }}'
+
+
+####input_datetime####
+input_datetime:
+  front_door_david:
+    name: David
+    has_date: true
+    has_time: true
+  front_door_vicky:
+    name: Vicky
+    has_date: true
+    has_time: true
+  front_door_spare_card:
+    name: Cleaner
+    has_date: true
+    has_time: true
